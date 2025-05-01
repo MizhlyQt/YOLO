@@ -5,141 +5,132 @@ import pandas as pd
 import torch
 import os
 import sys
+from PIL import Image
 
-# Configuración de página Streamlit (DEBE SER LA PRIMERA LÍNEA DE STREAMLIT)
+# Configuración de página (DEBE SER EL PRIMER COMANDO STREAMLIT)
 st.set_page_config(
-    page_title="Detección de Objetos en Tiempo Real",
+    page_title="Detección de Objetos",
     page_icon="🔍",
     layout="wide"
 )
 
-# Función para cargar el modelo YOLOv5
-@st.cache_resource
-def load_yolov5_model():
-    try:
-        # Cargar el modelo con torch hub (compatible con torch 1.12.0)
-        model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
-        return model
-    except Exception as e:
-        st.error(f"❌ Error al cargar el modelo: {str(e)}")
-        st.info("""
-        Recomendaciones:
-        1. Verifica que tienes conexión a internet
-        2. Asegúrate de tener instaladas las dependencias
-        """)
-        return None
-
-# Título y descripción
-st.title("🔍 Detección de Objetos en Imágenes")
-st.markdown("""
-Seleccione el método de entrada y ajuste los parámetros en la barra lateral.
-""")
-
-# Opción para elegir entre cámara o subir imagen
-input_method = st.radio(
+# Título y selector de método
+st.title("🔍 Detección de Objetos YOLOv5")
+metodo = st.radio(
     "Seleccione el método de entrada:",
     ["📷 Usar cámara", "🖼️ Subir imagen"],
-    horizontal=True
+    horizontal=True,
+    index=0
 )
 
-# Cargar el modelo
-model = load_yolov5_model()
+# Función para cargar el modelo (compatible con torch 1.12.0)
+@st.cache_resource
+def load_model():
+    try:
+        # Forma compatible con tus versiones específicas
+        model = torch.hub.load('ultralytics/yolov5', 'yolov5s', 
+                             pretrained=True, 
+                             trust_repo=True)
+        return model
+    except Exception as e:
+        st.error(f"Error al cargar modelo: {str(e)}")
+        return None
+
+# Cargar modelo
+model = load_model()
 
 if model:
-    # Sidebar para parámetros (MANTENIENDO TODAS LAS OPCIONES ORIGINALES)
-    st.sidebar.title("Parámetros")
-    
+    # Sidebar con TODOS los parámetros originales
     with st.sidebar:
-        st.subheader('Configuración de detección')
-        model.conf = st.slider('Confianza mínima', 0.0, 1.0, 0.25, 0.01)
-        model.iou = st.slider('Umbral IoU', 0.0, 1.0, 0.45, 0.01)
-        st.caption(f"Confianza: {model.conf:.2f} | IoU: {model.iou:.2f}")
+        st.title("⚙️ Parámetros")
         
-        st.subheader('Opciones avanzadas')
-        try:
-            model.agnostic = st.checkbox('NMS class-agnostic', False)
-            model.multi_label = st.checkbox('Múltiples etiquetas por caja', False)
-            model.max_det = st.number_input('Detecciones máximas', 10, 2000, 1000, 10)
-        except:
-            st.warning("Algunas opciones avanzadas no están disponibles")
+        # Configuración de detección
+        st.subheader("Configuración básica")
+        model.conf = st.slider("Umbral confianza", 0.0, 1.0, 0.25, 0.01)
+        model.iou = st.slider("Umbral IoU", 0.0, 1.0, 0.45, 0.01)
+        
+        # Opciones avanzadas
+        st.subheader("Opciones avanzadas")
+        model.max_det = st.number_input("Máx. detecciones", 10, 2000, 1000)
+        model.agnostic = st.checkbox("NMS agnóstico", False)
+        model.multi_label = st.checkbox("Múltiples etiquetas", False)
+        
+        # Filtro para cámara (solo visible cuando corresponda)
+        if metodo == "📷 Usar cámara":
+            st.subheader("Procesamiento cámara")
+            filtro_camara = st.checkbox("Aplicar filtro inverso")
 
-    # Procesamiento según el método seleccionado
-    if input_method == "📷 Usar cámara":
-        img_file_buffer = st.camera_input("Toma una foto")
-        if img_file_buffer is not None:
-            # Procesamiento para cámara (MANTENIENDO EL FILTRO ORIGINAL)
-            with st.sidebar:
-                st.subheader("Procesamiento para Cámara")
-                filtro = st.radio("Filtro para imagen con cámara", ('Sí', 'No'))
-            
-            bytes_data = img_file_buffer.getvalue()
-            cv2_img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
-            
-            if filtro == 'Sí':
-                cv2_img = cv2.bitwise_not(cv2_img)
+    # Obtener imagen según método seleccionado
+    img = None
+    if metodo == "📷 Usar cámara":
+        img_file = st.camera_input("Tome una foto")
+        if img_file:
+            bytes_data = img_file.getvalue()
+            img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
+            if filtro_camara:
+                img = cv2.bitwise_not(img)
     else:
-        # Opción para subir imagen
-        img_file_buffer = st.file_uploader("Sube una imagen", type=["png", "jpg", "jpeg"])
-        if img_file_buffer is not None:
-            bytes_data = img_file_buffer.getvalue()
-            cv2_img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
-    
-    if img_file_buffer is not None:
-        # Realizar detección (MANTENIENDO EL PROCESAMIENTO ORIGINAL)
-        with st.spinner("Detectando objetos..."):
-            try:
-                results = model(cv2_img)
-            except Exception as e:
-                st.error(f"Error durante la detección: {str(e)}")
-                st.stop()
-        
-        # Mostrar resultados (MANTENIENDO LA VISUALIZACIÓN ORIGINAL)
-        try:
-            predictions = results.pred[0]
-            boxes = predictions[:, :4]
-            scores = predictions[:, 4]
-            categories = predictions[:, 5]
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.subheader("Imagen con detecciones")
-                results.render()
-                st.image(cv2_img, channels='BGR', use_column_width=True)
-            
-            with col2:
-                st.subheader("Objetos detectados")
-                
-                label_names = model.names
-                category_count = {}
-                for category in categories:
-                    category_idx = int(category.item()) if hasattr(category, 'item') else int(category)
-                    category_count[category_idx] = category_count.get(category_idx, 0) + 1
-                
-                data = []
-                for category, count in category_count.items():
-                    label = label_names[category]
-                    confidence = scores[categories == category].mean().item() if len(scores) > 0 else 0
-                    data.append({
-                        "Categoría": label,
-                        "Cantidad": count,
-                        "Confianza promedio": f"{confidence:.2f}"
-                    })
-                
-                if data:
-                    df = pd.DataFrame(data)
-                    st.dataframe(df, use_container_width=True)
-                    st.bar_chart(df.set_index('Categoría')['Cantidad'])
-                else:
-                    st.info("No se detectaron objetos")
-        except Exception as e:
-            st.error(f"Error al procesar resultados: {str(e)}")
+        img_file = st.file_uploader("Suba una imagen", type=["jpg", "png", "jpeg"])
+        if img_file:
+            bytes_data = img_file.read()
+            img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
 
-    # Pie de página original
-    st.markdown("---")
-    st.caption("""
-    **Acerca de la aplicación**: Esta aplicación utiliza YOLOv5 para detección de objetos.
-    Desarrollada con Streamlit y PyTorch.
-    """)
+    # Procesamiento de detección
+    if img is not None:
+        with st.spinner("Analizando imagen..."):
+            try:
+                # Convertir y realizar detección
+                img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                results = model(img_rgb)
+                
+                # Mostrar resultados en 2 columnas
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.subheader("Detecciones visuales")
+                    results.render()  # Añade las cajas a la imagen
+                    st.image(img_rgb, use_column_width=True)
+                
+                with col2:
+                    st.subheader("Resultados numéricos")
+                    # DataFrame con resultados
+                    df = results.pandas().xyxy[0]
+                    df = df[['name', 'confidence']].rename(columns={
+                        'name': 'Objeto',
+                        'confidence': 'Confianza'
+                    })
+                    
+                    st.dataframe(
+                        df.sort_values('Confianza', ascending=False),
+                        use_container_width=True,
+                        height=400
+                    )
+                    
+                    # Resumen estadístico
+                    st.subheader("Resumen")
+                    summary = df['Objeto'].value_counts().reset_index()
+                    st.bar_chart(summary.set_index('Objeto'))
+                    
+                    # Botón de descarga
+                    csv = df.to_csv(index=False).encode('utf-8')
+                    st.download_button(
+                        label="📥 Descargar resultados",
+                        data=csv,
+                        file_name='resultados.csv',
+                        mime='text/csv'
+                    )
+            
+            except Exception as e:
+                st.error(f"Error en detección: {str(e)}")
+
+# Mensaje si no hay modelo
 else:
-    st.error("No se pudo cargar el modelo. Verifica las dependencias.")
+    st.error("""
+    No se pudo cargar el modelo. Verifique:
+    1. Requerimientos instalados (torch==1.12.0)
+    2. Conexión a internet para descargar pesos
+    """)
+
+# Pie de página
+st.markdown("---")
+st.caption("Aplicación de detección de objetos | YOLOv5 | torch==1.12.0")
