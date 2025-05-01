@@ -12,7 +12,26 @@ st.set_page_config(
     page_icon="🔍",
     layout="wide"
 )
+page_style = """
+<style>
+/* Fondo principal */
+[data-testid="stAppViewContainer"] {
+    background-color: #010519;
+}
 
+/* Fondo del sidebar */
+[data-testid="stSidebar"] {
+    background-color: #0d0101;
+}
+
+/* Color de todos los textos */
+[data-testid="stMarkdownContainer"] {
+    color: #FFFFFF;
+}
+</style>
+"""
+
+st.markdown(page_style, unsafe_allow_html=True)
 # Función para cargar el modelo 
 @st.cache_resource
 def load_yolov5_model(model_path='yolov5s.pt'):
