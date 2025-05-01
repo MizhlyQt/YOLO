@@ -146,7 +146,10 @@ if model:
                     if data:
                         df = pd.DataFrame(data)
                         st.dataframe(df, use_container_width=True)
-                        st.bar_chart(df.set_index('Categoría')['Cantidad'])
+                        st.bar_chart(
+                            df.set_index('Categoría')['Cantidad'],
+                            color='#FF4B4B'  # Color rojo corporativo de Streamlit
+                        )
                     else:
                         st.info("No se detectaron objetos con los parámetros actuales.")
             except Exception as e:
