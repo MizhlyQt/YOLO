@@ -6,14 +6,13 @@ import torch
 import os
 import sys
 
-# Configuración de página Streamlit (PRIMER COMANDO)
-st.set_page_config(
+# Configuración de página Streamlit
     page_title="Detección de Objetos en Tiempo Real",
     page_icon="🔍",
     layout="wide"
 )
 
-# Función para cargar el modelo (ORIGINAL SIN CAMBIOS)
+# Función para cargar el modelo 
 @st.cache_resource
 def load_yolov5_model(model_path='yolov5s.pt'):
     try:
@@ -48,25 +47,25 @@ def load_yolov5_model(model_path='yolov5s.pt'):
         """)
         return None
 
-# Título y descripción (ORIGINAL)
+# Título y descripción 
 st.title("🔍 Detección de Objetos en Imágenes")
 st.markdown("""
 Esta aplicación utiliza YOLOv5 para detectar objetos. Seleccione el método de entrada:
 """)
 
-# Selector de método (NUEVO)
+# Selector de método 
 option = st.radio(
     "Fuente de imagen:",
     ["📷 Usar cámara", "🖼️ Subir imagen"],
     horizontal=True
 )
 
-# Cargar el modelo (ORIGINAL)
+# Cargar el modelo 
 with st.spinner("Cargando modelo YOLOv5..."):
     model = load_yolov5_model()
 
 if model:
-    # Sidebar (ORIGINAL SIN EL FILTRO)
+    # Sidebar 
     st.sidebar.title("Parámetros")
     
     with st.sidebar:
@@ -83,22 +82,22 @@ if model:
         except:
             st.warning("Algunas opciones avanzadas no están disponibles")
 
-    # Contenedor principal (ORIGINAL)
+    # Contenedor principal 
     main_container = st.container()
     
     with main_container:
-        # Obtención de imagen según selección (NUEVO)
+        # Obtención de imagen según selección 
         if option == "📷 Usar cámara":
             img_file_buffer = st.camera_input("Toma una foto")
         else:
             img_file_buffer = st.file_uploader("Sube una imagen", type=["png", "jpg", "jpeg"])
 
         if img_file_buffer is not None:
-            # Procesamiento de imagen (ORIGINAL SIN FILTRO)
+            # Procesamiento de imagen 
             bytes_data = img_file_buffer.getvalue()
             cv2_img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
             
-            # Detección (ORIGINAL)
+            # Detección 
             with st.spinner("Detectando objetos..."):
                 try:
                     results = model(cv2_img)
@@ -106,7 +105,7 @@ if model:
                     st.error(f"Error durante la detección: {str(e)}")
                     st.stop()
             
-            # Visualización (ORIGINAL)
+            # Visualización 
             try:
                 predictions = results.pred[0]
                 boxes = predictions[:, :4]
@@ -148,19 +147,19 @@ if model:
                         st.dataframe(df, use_container_width=True)
                         st.bar_chart(
                             df.set_index('Categoría')['Cantidad'],
-                            color='#FF4B4B'  # Color rojo corporativo de Streamlit
+                            color='#83eb2c'  
                         )
                     else:
                         st.info("No se detectaron objetos con los parámetros actuales.")
             except Exception as e:
                 st.error(f"Error al procesar los resultados: {str(e)}")
 
-# Mensaje error (ORIGINAL)
+# Mensaje error 
 else:
     st.error("No se pudo cargar el modelo. Por favor verifica las dependencias e inténtalo nuevamente.")
     st.stop()
 
-# Pie de página (ORIGINAL)
+# Pie de página 
 st.markdown("---")
 st.caption("""
 **Acerca de la aplicación**: Esta aplicación utiliza YOLOv5 para detección de objetos en tiempo real.
