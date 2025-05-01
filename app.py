@@ -6,14 +6,14 @@ import torch
 import os
 import sys
 
-# Configuración de página Streamlit (PRIMERA LÍNEA SIEMPRE)
+# Configuración de página Streamlit (PRIMER COMANDO)
 st.set_page_config(
     page_title="Detección de Objetos en Tiempo Real",
     page_icon="🔍",
     layout="wide"
 )
 
-# Función para cargar el modelo YOLOv5 (EXACTAMENTE IGUAL)
+# Función para cargar el modelo (ORIGINAL SIN CAMBIOS)
 @st.cache_resource
 def load_yolov5_model(model_path='yolov5s.pt'):
     try:
@@ -48,27 +48,25 @@ def load_yolov5_model(model_path='yolov5s.pt'):
         """)
         return None
 
-# Título y descripción (IGUAL AL ORIGINAL)
+# Título y descripción (ORIGINAL)
 st.title("🔍 Detección de Objetos en Imágenes")
 st.markdown("""
-Esta aplicación utiliza YOLOv5 para detectar objetos en imágenes capturadas con tu cámara.
-Ajusta los parámetros en la barra lateral para personalizar la detección.
+Esta aplicación utiliza YOLOv5 para detectar objetos. Seleccione el método de entrada:
 """)
 
-# --- NUEVA FUNCIONALIDAD AÑADIDA --- #
+# Selector de método (NUEVO)
 option = st.radio(
-    "Seleccione el método de entrada:",
+    "Fuente de imagen:",
     ["📷 Usar cámara", "🖼️ Subir imagen"],
     horizontal=True
 )
-# ----------------------------------- #
 
-# Cargar el modelo (IGUAL AL ORIGINAL)
+# Cargar el modelo (ORIGINAL)
 with st.spinner("Cargando modelo YOLOv5..."):
     model = load_yolov5_model()
 
 if model:
-    # Sidebar (CONSERVANDO TODOS LOS PARÁMETROS ORIGINALES)
+    # Sidebar (ORIGINAL SIN EL FILTRO)
     st.sidebar.title("Parámetros")
     
     with st.sidebar:
@@ -85,32 +83,22 @@ if model:
         except:
             st.warning("Algunas opciones avanzadas no están disponibles")
 
-    # Contenedor principal (CONSERVANDO TODA LA LÓGICA ORIGINAL)
+    # Contenedor principal (ORIGINAL)
     main_container = st.container()
     
     with main_container:
-        # --- MODIFICACIÓN PARA SOPORTAR AMBAS OPCIONES --- #
+        # Obtención de imagen según selección (NUEVO)
         if option == "📷 Usar cámara":
-            picture = st.camera_input("Capturar imagen", key="camera")
+            img_file_buffer = st.camera_input("Toma una foto")
         else:
-            picture = st.file_uploader("Subir imagen", type=["png", "jpg", "jpeg"])
-        # ------------------------------------------------- #
-        
-        if picture:
-            # Procesamiento (CONSERVANDO TODO EL CÓDIGO ORIGINAL)
-            bytes_data = picture.getvalue()
+            img_file_buffer = st.file_uploader("Sube una imagen", type=["png", "jpg", "jpeg"])
+
+        if img_file_buffer is not None:
+            # Procesamiento de imagen (ORIGINAL SIN FILTRO)
+            bytes_data = img_file_buffer.getvalue()
             cv2_img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
             
-            # MANTENIENDO EL FILTRO ORIGINAL SOLO PARA CÁMARA
-            if option == "📷 Usar cámara":
-                with st.sidebar:
-                    st.subheader("Procesamiento para Cámara")
-                    filtro = st.radio("Filtro para imagen con cámara", ('Sí', 'No'))
-                
-                if filtro == 'Sí':
-                    cv2_img = cv2.bitwise_not(cv2_img)
-            
-            # DETECCIÓN ORIGINAL (SIN CAMBIOS)
+            # Detección (ORIGINAL)
             with st.spinner("Detectando objetos..."):
                 try:
                     results = model(cv2_img)
@@ -118,7 +106,7 @@ if model:
                     st.error(f"Error durante la detección: {str(e)}")
                     st.stop()
             
-            # VISUALIZACIÓN ORIGINAL (SIN CAMBIOS)
+            # Visualización (ORIGINAL)
             try:
                 predictions = results.pred[0]
                 boxes = predictions[:, :4]
@@ -164,12 +152,12 @@ if model:
             except Exception as e:
                 st.error(f"Error al procesar los resultados: {str(e)}")
 
-# Mensaje original si no hay modelo (SIN CAMBIOS)
+# Mensaje error (ORIGINAL)
 else:
     st.error("No se pudo cargar el modelo. Por favor verifica las dependencias e inténtalo nuevamente.")
     st.stop()
 
-# Pie de página original (SIN CAMBIOS)
+# Pie de página (ORIGINAL)
 st.markdown("---")
 st.caption("""
 **Acerca de la aplicación**: Esta aplicación utiliza YOLOv5 para detección de objetos en tiempo real.
